@@ -6,7 +6,7 @@ const progressPercentage = document.getElementById('progress-percentage');
 const progressBarContainer = document.getElementById('progress-bar-container');
 const hoverTimestampLabel = document.getElementById('hover-timestamp-label');
 const progressArea = document.getElementById('progress-area');
-
+const API_BASE_URL = 'http://localhost:5000/api/progress';
 // Array to store watched intervals [start_time, end_time]
 let watchedIntervals = [];
 
@@ -37,9 +37,7 @@ video.addEventListener('play', () => {
 // When video is paused
 video.addEventListener('pause', () => {
     console.log('Event: pause');
-    // If tracking a segment and the pause wasn't triggered by the start of a seek, add the segment.
-    // We check !video.seeking because a pause can sometimes fire immediately after seeking starts in some browsers,
-    // and the segment ending is primarily handled by the 'seeking' event itself.
+
     if (currentPlaybackStart !== -1 && !video.seeking) {
         const segmentStart = currentPlaybackStart;
         const segmentEnd = video.currentTime;
@@ -133,9 +131,7 @@ video.addEventListener('loadedmetadata', () => {
     // Initial display update happens within loadProgress finally block
 });
 
-// Use timeupdate primarily for updating display frequently during regular playback
-// It also helps in detecting potential skips based on time difference,
-// but segment ending is managed by 'seeking', 'pause', and 'ended'.
+
 video.addEventListener('timeupdate', () => {
     const currentTime = video.currentTime;
     const totalDuration = video.duration;
@@ -144,9 +140,7 @@ video.addEventListener('timeupdate', () => {
     if (!video.paused && totalDuration > 0 && lastKnownTime !== undefined) {
         const timeDifference = currentTime - lastKnownTime;
         if (timeDifference > SKIP_THRESHOLD) {
-            // This indicates a jump in time, but the 'seeking' event (if user-initiated)
-            // or the 'pause' event would handle adding the segment before the jump.
-            // console.log(`Detected potential large time jump via timeupdate: From ${formatTime(lastKnownTime)} to ${formatTime(currentTime)}`);
+           
         }
     }
     lastKnownTime = currentTime; // Always update lastKnownTime
@@ -366,79 +360,98 @@ function updateProgressDisplay() {
 // --- Local Storage ---
 
 // Saves the current watched intervals and video playback time to Local Storage.
-function saveProgress() {
+async function saveProgress() {
     const progressData = {
-        intervals: watchedIntervals,
-        // Saving currentTime allows the video to resume at the last exact point played or seeked to.
-        currentTime: video.currentTime
+        videoId: localStorageKey,
+        watchedSegments: watchedIntervals
     };
+    
     try {
-        localStorage.setItem(localStorageKey, JSON.stringify(progressData));
-        console.log('Progress saved:', progressData); // Log the data being saved
+        const response = await fetch(`${API_BASE_URL}/save`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(progressData)
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to save progress');
+        }
+
+        console.log('Progress saved to server:', progressData);
     } catch (e) {
-        console.error('Failed to save progress to Local Storage:', e);
-        if (e.name === 'QuotaExceededError') {
-            console.error('Local Storage is full. Cannot save progress.');
+        console.error('Failed to save progress to server:', e);
+        // Fallback to localStorage if server save fails
+        try {
+            localStorage.setItem(localStorageKey, JSON.stringify({
+                intervals: watchedIntervals,
+                currentTime: video.currentTime
+            }));
+            console.log('Progress saved to localStorage as fallback');
+        } catch (localError) {
+            console.error('Failed to save to localStorage:', localError);
         }
     }
 }
-
 // Loads watched intervals and video playback time from Local Storage.
-function loadProgress() {
+async function loadProgress() {
     try {
-        const savedData = localStorage.getItem(localStorageKey);
-        if (savedData) {
-            const progressData = JSON.parse(savedData);
-            // Load intervals, ensuring it's an array
-            watchedIntervals = Array.isArray(progressData.intervals) ? progressData.intervals : [];
+        const response = await fetch(`${API_BASE_URL}/${encodeURIComponent(localStorageKey)}`);
+        
+        if (!response.ok) {
+            throw new Error('Failed to fetch progress');
+        }
 
-            // Set video current time if saved data is valid and duration is known
-            // Check video.duration > 0 to ensure metadata is loaded before setting time
-            if (progressData.currentTime !== undefined && !isNaN(progressData.currentTime) && video.duration > 0) {
-                 // Clamp loaded time to be within the video's duration to prevent errors
-                 video.currentTime = Math.min(progressData.currentTime, video.duration);
-                 console.log(`Loaded initial current time: ${formatTime(video.currentTime)}`);
-            } else {
-                 // If no valid time or duration not ready, set to 0
-                 video.currentTime = 0;
-                 console.log('No valid initial current time loaded or duration not available, setting to 0.');
-            }
+        const data = await response.json();
+        
+        // Load intervals from server response
+        watchedIntervals = Array.isArray(data.watchedSegments) ? data.watchedSegments : [];
+        console.log('Progress loaded from server:', watchedIntervals);
 
-             console.log('Progress loaded. Watched intervals:', watchedIntervals.map(i => `[${formatTime(i[0])}, ${formatTime(i[1])}]`)); // Log loaded intervals
-
+        // Update display after loading is complete
+        if (video.duration > 0) {
+            updateProgressDisplay();
         } else {
-            // No saved data found
+            // If duration not available yet, ensure update is called once loadedmetadata fires
+            video.addEventListener('loadedmetadata', updateProgressDisplay, { once: true });
+        }
+        
+    } catch (e) {
+        console.error('Failed to load progress from server:', e);
+        // Fallback to localStorage if server load fails
+        try {
+            const savedData = localStorage.getItem(localStorageKey);
+            if (savedData) {
+                const progressData = JSON.parse(savedData);
+                watchedIntervals = Array.isArray(progressData.intervals) ? progressData.intervals : [];
+                if (progressData.currentTime !== undefined && !isNaN(progressData.currentTime) && video.duration > 0) {
+                    video.currentTime = Math.min(progressData.currentTime, video.duration);
+                }
+                console.log('Progress loaded from localStorage as fallback');
+            }
+        } catch (localError) {
+            console.error('Failed to load from localStorage:', localError);
             watchedIntervals = [];
             video.currentTime = 0;
-             console.log('No saved progress found in Local Storage.');
         }
-    } catch (e) {
-        console.error('Failed to load progress from Local Storage:', e);
-        // Reset in case of parsing errors
-        watchedIntervals = [];
-        video.currentTime = 0;
-         console.log('Error loading progress, resetting to 0.');
-    } finally {
-        // Update display after loading is complete, ensuring duration is available first.
-        // If loadedmetadata already fired, call updateProgressDisplay directly.
-        // Otherwise, it will be called by the loadedmetadata listener.
+        
+        // Update display regardless of where data came from
         if (video.duration > 0) {
-             updateProgressDisplay();
+            updateProgressDisplay();
         } else {
-             // If duration not available yet, ensure update is called once loadedmetadata fires
-             // Use { once: true } to avoid multiple listeners if loadProgress is called again.
-             video.addEventListener('loadedmetadata', updateProgressDisplay, { once: true });
+            video.addEventListener('loadedmetadata', updateProgressDisplay, { once: true });
         }
     }
 }
 
-// Initial attempt to load progress when the script is parsed and executed.
-// The 'loadedmetadata' event listener will re-run loadProgress or ensure display is updated
-// once the video's duration is known.
-loadProgress();
 
-
-// --- Initial Setup and Cleanup ---
+// Set up periodic saving (every 30 seconds)
+const saveInterval = setInterval(() => {
+    if (watchedIntervals.length > 0) {
+        saveProgress();
+    }
+}, 30000);
 
 // Ensure cleanup and saving when the page is about to be unloaded.
 window.addEventListener('beforeunload', () => {
