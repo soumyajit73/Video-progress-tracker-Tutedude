@@ -449,4 +449,3 @@ window.addEventListener('beforeunload', () => {
     // Attempt to save the final progress right before the page unloads
     saveProgress();
 });
-
