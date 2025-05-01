@@ -1,5 +1,11 @@
 // script.js
 
+// --- Configuration ---
+// Time in seconds to consider a jump a "skip". Adjust if needed.
+// This is primarily for logging/debugging in timeupdate now.
+const SKIP_THRESHOLD = 0.5;
+
+
 // Get references to our HTML elements
 const video = document.getElementById('lecture-video');
 const progressPercentage = document.getElementById('progress-percentage');
@@ -15,71 +21,98 @@ let watchedIntervals = [];
 // Variable to track the start time of the current continuous playback segment
 let currentPlaybackStart = -1; // Use -1 to indicate no segment is being tracked
 
+// Variable to track the video's time in the previous timeupdate event
+let lastKnownTime = 0;
+
 // Key for Local Storage. Make it unique for this video.
 // Using the video source URL is a simple way to do this.
 const localStorageKey = 'videoProgress_' + (video.querySelector('source')?.src || video.src);
 
-console.log("Script loaded. Local Storage Key:", localStorageKey);
+console.log("Script loaded. Using Local Storage Key:", localStorageKey);
+console.log("Initial currentPlaybackStart:", currentPlaybackStart);
+
 
 // --- Event Listeners ---
 
 // When video starts playing
 video.addEventListener('play', () => {
+    console.log('--- Event: play ---');
+    console.log('Start of play listener. currentTime:', video.currentTime, 'currentPlaybackStart:', currentPlaybackStart, 'paused:', video.paused, 'seeking:', video.seeking);
     // If we weren't already tracking a segment, start tracking from the current time
     if (currentPlaybackStart === -1) {
         currentPlaybackStart = video.currentTime;
-        console.log('PLAY event: Playback started. Tracking segment from:', currentPlaybackStart);
+        console.log('PLAY event: Playback started. Setting currentPlaybackStart to:', currentPlaybackStart);
     } else {
-         console.log('PLAY event: Playback resumed. Still tracking segment from:', currentPlaybackStart);
+         console.log('PLAY event: Playback resumed. currentPlaybackStart remains:', currentPlaybackStart);
     }
+    lastKnownTime = video.currentTime; // Initialize lastKnownTime on play
 });
 
 // When video is paused
 video.addEventListener('pause', () => {
-    // If we were tracking a segment, add it to our list of watched intervals
-    if (currentPlaybackStart !== -1) {
-        // The segment ends at the current time
-        addWatchedInterval(currentPlaybackStart, video.currentTime);
+    console.log('--- Event: pause ---');
+    console.log('Start of pause listener. triggered at', video.currentTime, 'currentPlaybackStart:', currentPlaybackStart, 'paused:', video.paused, 'seeking:', video.seeking);
+    // If we were tracking a segment AND the video is NOT currently seeking, add it.
+    // This prevents adding segments during a seek that might trigger a momentary pause.
+    if (currentPlaybackStart !== -1 && !video.seeking) {
+        const segmentStart = currentPlaybackStart;
+        const segmentEnd = video.currentTime;
+        console.log('PAUSE event: currentPlaybackStart is valid and NOT seeking. Attempting to add interval:', [segmentStart, segmentEnd]);
+        addWatchedInterval(segmentStart, segmentEnd);
         // Reset the tracking variable
         currentPlaybackStart = -1;
-        console.log('PAUSE event: Playback paused at:', video.currentTime, 'Segment added.');
-    } else {
-         console.log('PAUSE event: Playback paused at:', video.currentTime, 'No segment was being tracked.');
+        console.log('PAUSE event: Resetting currentPlaybackStart to:', currentPlaybackStart);
+    } else if (currentPlaybackStart !== -1 && video.seeking) {
+         console.log('PAUSE event: currentPlaybackStart is valid, but video is seeking. Discarding segment addition.');
+         currentPlaybackStart = -1; // Reset tracking anyway
+         console.log('PAUSE event: Resetting currentPlaybackStart to:', currentPlaybackStart);
+    }
+    else {
+         console.log('PAUSE event: No segment was being tracked (currentPlaybackStart is -1).');
     }
     saveProgress(); // Good time to save progress
 });
 
 // When the video starts seeking (user clicks on timeline, etc.)
 video.addEventListener('seeking', () => {
-    console.log('SEEKING event: Seeking started at:', video.currentTime, 'Video paused state:', video.paused);
-    // If a continuous segment was being tracked (meaning video was likely playing), end it now.
-    // Explicitly check if video was NOT paused right before seeking.
-    if (currentPlaybackStart !== -1 && !video.paused) {
-        const segmentStart = currentPlaybackStart; // Store the start time
+    console.log('--- Event: seeking ---');
+    console.log('Start of seeking listener. triggered at', video.currentTime, 'currentPlaybackStart:', currentPlaybackStart, 'paused:', video.paused, 'seeking:', video.seeking);
+    // If a continuous segment was being tracked, end it at the current time *before* the seek.
+    // This is the primary mechanism to close the segment before a jump.
+    if (currentPlaybackStart !== -1) {
+        const segmentStart = currentPlaybackStart;
         const segmentEnd = video.currentTime; // The segment ends at the time seeking started
-        currentPlaybackStart = -1; // Reset tracking FIRST
-        addWatchedInterval(segmentStart, segmentEnd); // Now add the interval
-        console.log('SEEKING event: Detected playback interrupted by seeking. Ended previous segment tracking from:', segmentStart, 'to', segmentEnd);
-    } else if (currentPlaybackStart !== -1 && video.paused) {
-         console.log('SEEKING event: Detected seeking while video was already paused. Discarding previous segment tracking.');
-         currentPlaybackStart = -1; // Discard if seeking started while already paused
+         console.log('SEEKING event: currentPlaybackStart is valid. Attempting to add interval before seek:', [segmentStart, segmentEnd]);
+        // Only add the interval if it has a valid duration (start is less than end)
+        if (segmentStart < segmentEnd) {
+             addWatchedInterval(segmentStart, segmentEnd); // Add the segment watched before the seek
+             console.log('SEEKING event: Added segment before seek from:', segmentStart, 'to', segmentEnd);
+        } else {
+             console.log('SEEKING event: Segment before seek had zero or negative duration. Discarding.');
+        }
+        currentPlaybackStart = -1; // Reset tracking immediately when seeking starts
+        console.log('SEEKING event: Resetting currentPlaybackStart to:', currentPlaybackStart);
+    } else {
+         console.log('SEEKING event: Seeking detected, but no segment was being tracked (currentPlaybackStart is -1).');
     }
+     lastKnownTime = video.currentTime; // Update lastKnownTime at the start of seeking
 });
 
 
 // When user finishes seeking (jumps) to a different part of the video
 video.addEventListener('seeked', () => {
-    console.log('SEEKED event: Seek finished. Video is now at:', video.currentTime, 'Video paused state:', video.paused);
+    console.log('--- Event: seeked ---');
+    console.log('Start of seeked listener. triggered at', video.currentTime, 'currentPlaybackStart:', currentPlaybackStart, 'paused:', video.paused, 'seeking:', video.seeking);
 
-    // --- Refined Logic for Seeking ---
-    // The previous segment was already handled by the 'seeking' event if playback was interrupted.
-    // We only start tracking a NEW segment here if the video is playing AFTER the seek finishes.
+    // Only start tracking a NEW segment here if the video is playing AFTER the seek finishes.
     if (!video.paused) {
          currentPlaybackStart = video.currentTime;
          console.log('SEEKED event: Video is playing after seek. New segment tracking started from:', currentPlaybackStart);
     } else {
          console.log('SEEKED event: Video is paused after seek. No new segment tracking started.');
     }
+
+    lastKnownTime = video.currentTime; // Update lastKnownTime after seeked
 
     // Recalculate and display progress after seeking
     updateProgressDisplay();
@@ -88,13 +121,18 @@ video.addEventListener('seeked', () => {
 
 // When video ends
 video.addEventListener('ended', () => {
+     console.log('--- Event: ended ---');
+     console.log('Start of ended listener. triggered at', video.currentTime, 'currentPlaybackStart:', currentPlaybackStart);
      // If we were tracking a segment, add the final segment up to video duration
      if (currentPlaybackStart !== -1) {
-        addWatchedInterval(currentPlaybackStart, video.duration);
+        const segmentStart = currentPlaybackStart;
+        const segmentEnd = video.duration;
+        console.log('ENDED event: currentPlaybackStart is valid. Attempting to add final interval:', [segmentStart, segmentEnd]);
+        addWatchedInterval(segmentStart, segmentEnd);
         currentPlaybackStart = -1; // Reset tracking
-        console.log('ENDED event: Video ended. Final segment added.');
+        console.log('ENDED event: Resetting currentPlaybackStart to:', currentPlaybackStart);
     } else {
-         console.log('ENDED event: Video ended. No segment was being tracked.');
+         console.log('ENDED event: No segment was being tracked (currentPlaybackStart is -1).');
     }
     // Ensure progress is updated, especially if the whole video was watched uniquely
     updateProgressDisplay();
@@ -103,10 +141,38 @@ video.addEventListener('ended', () => {
 
 // When video metadata (like duration) is loaded
 video.addEventListener('loadedmetadata', () => {
-    console.log('LOADEDMETADATA event: Metadata loaded. Duration:', video.duration);
-    loadProgress(); // Attempt to load saved progress when video metadata is ready
+    console.log('--- Event: loadedmetadata ---');
+    console.log('Start of loadedmetadata listener. Duration:', video.duration);
+    loadProgress(); // Attempt to load saved progress from Local Storage
     // Initial display update based on loaded data (also done in loadProgress)
     // updateProgressDisplay(); // Called inside loadProgress
+    lastKnownTime = video.currentTime; // Initialize lastKnownTime
+});
+
+// Use timeupdate to detect skips during playback (for logging/debugging)
+video.addEventListener('timeupdate', () => {
+    const currentTime = video.currentTime;
+    const totalDuration = video.duration;
+
+    // Log every timeupdate (uncomment if needed, can be very noisy)
+    // console.log(`TIMEUPDATE: currentTime=${currentTime.toFixed(2)}, lastKnownTime=${lastKnownTime !== undefined ? lastKnownTime.toFixed(2) : 'undefined'}, currentPlaybackStart=${currentPlaybackStart}, paused=${video.paused}, seeking=${video.seeking}`);
+
+    // Only check for skips if video is playing and duration is valid and lastKnownTime is set
+    if (!video.paused && totalDuration > 0 && lastKnownTime !== undefined) {
+        const timeDifference = currentTime - lastKnownTime;
+
+        // If the time difference is significantly larger than expected for normal playback,
+        // it indicates a skip forward.
+        if (timeDifference > SKIP_THRESHOLD) {
+            console.log(`TIMEUPDATE event: Detected a potential skip forward. Time difference: ${timeDifference.toFixed(2)}s. From ${lastKnownTime.toFixed(2)}s to ${currentTime.toFixed(2)}s. currentPlaybackStart=${currentPlaybackStart}, seeking=${video.seeking}`);
+            // Note: Segment ending logic moved to seeking/pause events
+        }
+    }
+
+    // Always update lastKnownTime for the next timeupdate check
+    lastKnownTime = currentTime;
+
+    // updateProgressDisplay(); // Uncomment if you want the percentage to update live frequently
 });
 
 
@@ -361,7 +427,7 @@ function saveProgress() {
         // Convert the data object to a JSON string before saving
         const dataToSave = JSON.stringify(progressData);
         localStorage.setItem(localStorageKey, dataToSave);
-        console.log('Attempted to save progress to Local Storage:', dataToSave);
+        console.log('Progress saved to Local Storage.');
     } catch (e) {
         console.error('Failed to save progress to Local Storage:', e);
         // Check if error is due to storage full
@@ -394,21 +460,21 @@ function loadProgress() {
                  video.currentTime = progressData.currentTime;
                  console.log('Video position restored to:', video.currentTime);
             } else {
-                 console.log('No valid saved time found in data. Starting from 0.');
+                 console.log('No valid saved time found. Starting from 0.');
                  video.currentTime = 0; // Start from beginning if no valid time saved
             }
-            console.log('Progress loaded successfully from Local Storage.');
-            // Update the display based on the loaded data, which will also render the segments
+            console.log('Progress loaded from Local Storage.');
+            // Update the display based on the loaded data
             updateProgressDisplay();
         } else {
-            console.log('No saved progress found in Local Storage for key:', localStorageKey);
+            console.log('No saved progress found in Local Storage.');
             // Ensure initial state is clean if no data found
             watchedIntervals = [];
             video.currentTime = 0;
             updateProgressDisplay();
         }
     } catch (e) {
-        console.error('Failed to load or parse progress from Local Storage:', e);
+        console.error('Failed to load progress from Local Storage:', e);
         // Reset state if loading fails to prevent errors
         watchedIntervals = [];
         video.currentTime = 0;
@@ -418,5 +484,5 @@ function loadProgress() {
 
 // Initial load of progress when the script starts (or when metadata is ready).
 // The loadProgress function is called in the 'loadedmetadata' event listener
-// to ensure video.duration is available when calculating progress and setting currentTime.
+// to ensure video.duration is available and we can set currentTime correctly.
 // loadProgress(); // Called in loadedmetadata event listener instead
