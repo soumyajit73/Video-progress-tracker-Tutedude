@@ -377,7 +377,8 @@ async function saveProgress() {
         videoId: localStorageKey,
         watchedSegments: watchedIntervals,
         totalDuration: totalDuration,
-        percentageWatched: uniquePercentage
+        percentageWatched: uniquePercentage,
+        lastPosition: video.currentTime
     };
     
     // Debug logging
@@ -431,13 +432,18 @@ async function loadProgress() {
         
         // Load intervals from server response
         watchedIntervals = Array.isArray(data.watchedSegments) ? data.watchedSegments : [];
-        console.log('Progress loaded from server:', watchedIntervals);
+        
+        // Restore last position if available
+        if (data.lastPosition) {
+            video.currentTime = data.lastPosition;
+        }
+
+        console.log('Progress loaded from server:', data);
 
         // Update display after loading is complete
         if (video.duration > 0) {
             updateProgressDisplay();
         } else {
-            // If duration not available yet, ensure update is called once loadedmetadata fires
             video.addEventListener('loadedmetadata', updateProgressDisplay, { once: true });
         }
         

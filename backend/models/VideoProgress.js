@@ -20,6 +20,10 @@ const videoProgressSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  lastPosition: {
+    type: Number,
+    default: 0
+  },
   lastUpdated: {
     type: Date,
     default: Date.now

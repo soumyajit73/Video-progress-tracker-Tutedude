@@ -7,7 +7,7 @@ const FIXED_USER_ID = 'testUser123';
 
 router.post('/save', async (req, res) => {
   try {
-    const { videoId, watchedSegments, totalDuration, percentageWatched } = req.body;
+    const { videoId, watchedSegments, totalDuration, percentageWatched, lastPosition } = req.body;
     
     const progress = await VideoProgress.findOneAndUpdate(
       { videoId },
@@ -15,7 +15,8 @@ router.post('/save', async (req, res) => {
         videoId,
         watchedSegments,
         totalDuration,
-        percentageWatched, // Add this field
+        percentageWatched,
+        lastPosition,
         lastUpdated: Date.now()
       },
       { 
@@ -36,16 +37,18 @@ router.get('/:videoId', async (req, res) => {
   const { videoId } = req.params;
 
   try {
-    const progress = await VideoProgress.findOne({ userId: FIXED_USER_ID, videoId });
+    const progress = await VideoProgress.findOne({ videoId });
     if (progress) {
       res.json({ 
         watchedSegments: progress.watchedSegments,
-        percentageWatched: progress.percentageWatched || 0
+        percentageWatched: progress.percentageWatched || 0,
+        lastPosition: progress.lastPosition || 0
       });
     } else {
       res.json({ 
         watchedSegments: [],
-        percentageWatched: 0
+        percentageWatched: 0,
+        lastPosition: 0
       });
     }
   } catch (err) {
