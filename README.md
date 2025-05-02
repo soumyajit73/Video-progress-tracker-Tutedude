@@ -31,8 +31,10 @@
 
 ### 1. Clone the Repository
 
+```bash
 git clone <your-repo-url>
 cd <your-project-folder>
+bash'''
 
 markdown
 Copy
