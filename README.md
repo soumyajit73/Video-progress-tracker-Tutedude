@@ -14,7 +14,7 @@
 
 ## Technologies Used
 
-* **Frontend:** HTML, CSS, JavaScript (Vanilla JS)
+* **Frontend:** HTML, CSS, JavaScript 
 * **Backend:** Node.js, Express.js
 * **Database:** MongoDB (using Mongoose for object modeling)
 * **Deployment:** 
@@ -105,11 +105,14 @@ PORT=3000 # Or any other port you prefer locally
 * The frontend communicates with the backend API using the `Workspace` API.
 * `saveProgress()` sends a `POST` request to the backend. It takes the internal `watchedIntervals` array (`[[start, end], ...]`) and maps it to the `{ start, end }` object format required by the backend Mongoose schema *just before sending*.
 * It also includes:
+  * object id
   * The user ID
   * Video ID
-  * Total duration
-  * Percentage watched
-  * Last known position
+  * lastUpdated
+  * totalDuration
+  * percentageWatched
+  * lastPosition
+
 * `loadProgress()` sends a `GET` request to fetch saved progress. It expects the response to include `watchedSegments` as an array of `{ start, end }` objects.
 * It then maps this received data back into the frontend's internal `[start, end]` array format.
 
