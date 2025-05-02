@@ -3,15 +3,16 @@ const router = express.Router();
 const VideoProgress = require('../models/VideoProgress');
 
 // Simulate a fixed user
-const FIXED_USER_ID = 'testUser123';
+const FIXED_USER_ID = 'differentUser456';
 
 router.post('/save', async (req, res) => {
   try {
     const { videoId, watchedSegments, totalDuration, percentageWatched, lastPosition } = req.body;
     
     const progress = await VideoProgress.findOneAndUpdate(
-      { videoId },
+      { userId: 'differentUser456',videoId },
       { 
+        userId: 'differentUser456',
         videoId,
         watchedSegments,
         totalDuration,
@@ -37,7 +38,7 @@ router.get('/:videoId', async (req, res) => {
   const { videoId } = req.params;
 
   try {
-    const progress = await VideoProgress.findOne({ videoId });
+    const progress = await VideoProgress.findOne({ userId: 'differentUser456',videoId });
     if (progress) {
       res.json({ 
         watchedSegments: progress.watchedSegments,
