@@ -31,50 +31,50 @@
 
 ### 1. Clone the Repository
 
-git clone <your-repo-url>
-cd <your-project-folder>
+* git clone <your-repo-url>
+* cd <your-project-folder>
 
 ## 2. Backend Setup
-Navigate into your backend directory (backend/ or similar).
-cd backend # Adjust this path if your backend is in a different folder
+* Navigate into your backend directory (backend/ or similar).
+* cd backend # Adjust this path if your backend is in a different folder
 
 ## Install backend dependencies:
-npm install
+* npm install
 # or
-yarn install
-## Create a .env file in the backend/ folder for environment variables.
-# backend/.env
-MONGODB_URI=<Your MongoDB Atlas Connection String>
-# Example: MONGODB_URI=mongodb+srv://<username>:<password>@<cluster-url>/<database-name>?retryWrites=true&w=majority
-PORT=3000 # Or any other port you prefer locally
+* yarn install
+* Create a .env file in the backend/ folder for environment variables.
+ backend/.env
+* MONGODB_URI=<Your MongoDB Atlas Connection String>
+* Example: MONGODB_URI=mongodb+srv://<username>:<password>@<cluster-url>/<database-name>?retryWrites=true&w=majority
+* PORT=3000 # Or any other port you prefer locally
 
 ## 3. Frontend Setup
- Locate your frontend files (index.html, script.js, style.css). If they are in a separate folder (e.g., public/ or frontend/), navigate there.
+* Locate your frontend files (index.html, script.js, style.css). If they are in a separate folder (e.g., public/ or frontend/), navigate there.
 
- Open script.js. You need to configure the API_BASE_URL and currentVideoId
+* Open script.js. You need to configure the API_BASE_URL and currentVideoId
 
-// script.js
+* // script.js
 // ...
-const currentVideoId = 'your_current_video_identifier'; // <<< REPLACE with a unique ID for this video
+* const currentVideoId = 'your_current_video_identifier'; // <<< REPLACE with a unique ID for this video
 // ...
-const API_BASE_URL = 'http://localhost:3000'; // <<< Ensure this matches your backend local port
+* const API_BASE_URL = 'http://localhost:3000'; // <<< Ensure this matches your backend local port
 // ...
 
-Replace 'your_current_video_identifier' with a unique string that identifies the video you are tracking progress for. This ID is used by the backend to store/retrieve progress for this specific video.
+* Replace 'your_current_video_identifier' with a unique string that identifies the video you are tracking progress for. This ID is used by the backend to store/retrieve progress for this specific video.
 
-Ensure API_BASE_URL points to your local backend server address and port.
+* Ensure API_BASE_URL points to your local backend server address and port.
 
 ## 4. Running the Application
-Start the Backend: Navigate to your backend directory in a terminal (cd backend) and run:
+* Start the Backend: Navigate to your backend directory in a terminal (cd backend) and run:
 
-npm start
+* npm start
 # or
-yarn start
+* yarn start
 
 ## Serve the Frontend: Open your index.html file in a web browser. You can usually just double-click it, or use a simple local server like VS Code's Live Server.
 
-If you are running the fullstack project on Render later, the backend will serve the frontend files. For local development, opening index.html directly or using Live Server is common.
-Open the browser's developer console (usually F12) to see the logs for the progress tracking.
+* If you are running the fullstack project on Render later, the backend will serve the frontend files. For local development, opening index.html directly or using Live Server is common.
+* Open the browser's developer console (usually F12) to see the logs for the progress tracking.
 
 ## Design Decisions and How it Works
 
