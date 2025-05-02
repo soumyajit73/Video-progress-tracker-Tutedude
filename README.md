@@ -2,7 +2,7 @@
 This project is a full-stack web application that tracks a user's progress while watching a video. It allows users to resume from where they left off and visually highlights watched segments on the video progress bar — all without requiring a login system.
 
 🚀 Features
-Tracks continuous playback segments of a video
+**Tracks continuous playback segments of a video
 
 Merges overlapping/adjacent watched intervals
 
