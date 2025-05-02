@@ -80,5 +80,3 @@ Building this application involved several challenges, common in fullstack devel
     * **Solution:** Modified the frontend `saveProgress` function to explicitly map the internal `[[start, end]]` array format to the `{ start, end }` object format required by the Mongoose schema just before sending the data.
 5.  **Backend Route Field Names and User ID Handling:** Backend routes expecting different field names (`watchedSegments`) and potentially using a fixed user ID instead of the one sent by the frontend.
     * **Solution:** Updated the frontend `saveProgress` and `loadProgress` functions to send and expect the field names and user ID handling used by the specific backend routes file.
-6.  **Deployment Configuration:** Setting up environment variables, configuring static file serving for fullstack deployment, and managing database network access.
-    * **Solution:** Following platform-specific documentation (like Render's), configuring environment variables, setting up static middleware in Express, and whitelisting IP addresses in MongoDB Atlas.
