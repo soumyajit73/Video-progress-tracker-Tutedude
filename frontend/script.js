@@ -319,7 +319,12 @@ function formatTime(seconds) {
 // Updates the displayed progress percentage and renders the visual watched segments on the progress bar.
 function updateProgressDisplay() {
     const uniqueTime = getUniqueWatchedTime();
-    const totalDuration = video.duration;
+    const totalDuration = Math.floor(video.duration); // Round down the duration
+
+    // Debug logging
+    console.log('Raw video duration:', video.duration);
+    console.log('Rounded duration:', totalDuration);
+    console.log('Unique watched time:', uniqueTime);
 
     // Handle cases where duration is not yet available or invalid
     if (isNaN(totalDuration) || totalDuration <= 0) {
@@ -331,7 +336,8 @@ function updateProgressDisplay() {
 
     // Calculate and display the watched percentage
     const percentage = (uniqueTime / totalDuration) * 100;
-    const displayPercentage = Math.min(percentage, 100).toFixed(1); // Clamp to 100% and format
+    // Ensure percentage doesn't exceed 100
+    const displayPercentage = Math.min(Math.max(0, percentage), 100).toFixed(1);
     progressPercentage.textContent = displayPercentage; // Update percentage text
 
     // Clear existing visual segments from the progress bar
@@ -357,14 +363,30 @@ function updateProgressDisplay() {
 }
 
 
-// --- Local Storage ---
+
 
 // Saves the current watched intervals and video playback time to Local Storage.
 async function saveProgress() {
+    const uniqueTime = getUniqueWatchedTime();
+    const totalDuration = Math.floor(video.duration);
+    const uniquePercentage = totalDuration > 0 
+        ? Math.min(Math.round((uniqueTime / totalDuration) * 100), 100)
+        : 0;
+
     const progressData = {
         videoId: localStorageKey,
-        watchedSegments: watchedIntervals
+        watchedSegments: watchedIntervals,
+        totalDuration: totalDuration,
+        percentageWatched: uniquePercentage
     };
+    
+    // Debug logging
+    console.log('Saving progress:', {
+        uniqueTime,
+        totalDuration,
+        uniquePercentage,
+        segments: watchedIntervals
+    });
     
     try {
         const response = await fetch(`${API_BASE_URL}/save`, {
@@ -379,14 +401,16 @@ async function saveProgress() {
             throw new Error('Failed to save progress');
         }
 
-        console.log('Progress saved to server:', progressData);
+        const savedData = await response.json();
+        console.log('Progress saved to server:', savedData);
     } catch (e) {
         console.error('Failed to save progress to server:', e);
         // Fallback to localStorage if server save fails
         try {
             localStorage.setItem(localStorageKey, JSON.stringify({
                 intervals: watchedIntervals,
-                currentTime: video.currentTime
+                currentTime: video.currentTime,
+                percentageWatched: uniquePercentage
             }));
             console.log('Progress saved to localStorage as fallback');
         } catch (localError) {

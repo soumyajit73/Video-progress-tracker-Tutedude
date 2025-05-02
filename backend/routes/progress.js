@@ -6,21 +6,29 @@ const VideoProgress = require('../models/VideoProgress');
 const FIXED_USER_ID = 'testUser123';
 
 router.post('/save', async (req, res) => {
-  const { videoId, watchedSegments } = req.body;
-
   try {
-    let progress = await VideoProgress.findOne({ userId: FIXED_USER_ID, videoId });
+    const { videoId, watchedSegments, totalDuration, percentageWatched } = req.body;
+    
+    const progress = await VideoProgress.findOneAndUpdate(
+      { videoId },
+      { 
+        videoId,
+        watchedSegments,
+        totalDuration,
+        percentageWatched, // Add this field
+        lastUpdated: Date.now()
+      },
+      { 
+        upsert: true, 
+        new: true,
+        runValidators: true 
+      }
+    );
 
-    if (progress) {
-      progress.watchedSegments = watchedSegments;
-    } else {
-      progress = new VideoProgress({ userId: FIXED_USER_ID, videoId, watchedSegments });
-    }
-
-    await progress.save();
-    res.json({ message: 'Progress saved successfully' });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to save progress' });
+    res.json(progress);
+  } catch (error) {
+    console.error('Save progress error:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -30,9 +38,15 @@ router.get('/:videoId', async (req, res) => {
   try {
     const progress = await VideoProgress.findOne({ userId: FIXED_USER_ID, videoId });
     if (progress) {
-      res.json({ watchedSegments: progress.watchedSegments });
+      res.json({ 
+        watchedSegments: progress.watchedSegments,
+        percentageWatched: progress.percentageWatched || 0
+      });
     } else {
-      res.json({ watchedSegments: [] });
+      res.json({ 
+        watchedSegments: [],
+        percentageWatched: 0
+      });
     }
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch progress' });
