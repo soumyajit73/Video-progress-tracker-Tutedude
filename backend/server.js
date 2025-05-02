@@ -8,21 +8,39 @@ const path = require('path');
 const app = express();
 connectDB();
 
+// Middleware
 app.use(cors());
 app.use(bodyParser.json());
+
+// API routes first
+app.use('/api/progress', progressRoutes);
 
 // Serve static files from frontend directory
 app.use(express.static(path.join(__dirname, '../frontend')));
 
-// API routes
-app.use('/api/progress', progressRoutes);
-
-// Route to serve index.html
+// Simple route for the home page
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/index.html'));
+    res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
-const PORT = 5000;
+// Catch-all route for client-side routing
+app.use((req, res, next) => {
+    if (req.path.startsWith('/api/')) {
+        return next();
+    }
+    res.sendFile(path.join(__dirname, '../frontend/index.html'));
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error('Server error:', err);
+    res.status(500).json({ 
+        error: 'Internal server error',
+        message: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+});
+
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running on http://localhost:${PORT}`);
 });

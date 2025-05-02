@@ -429,53 +429,96 @@ async function loadProgress() {
         }
 
         const data = await response.json();
+        console.log('Received data from server:', data);
         
-        // Load intervals from server response
-        watchedIntervals = Array.isArray(data.watchedSegments) ? data.watchedSegments : [];
-        
-        // Restore last position if available
-        if (data.lastPosition) {
-            video.currentTime = data.lastPosition;
+        // Load intervals and ensure they're valid
+        if (Array.isArray(data.watchedSegments)) {
+            watchedIntervals = data.watchedSegments;
+            console.log('Loaded watched segments:', watchedIntervals);
         }
 
-        console.log('Progress loaded from server:', data);
+        // Handle video position restoration
+        if (typeof data.lastPosition === 'number') {
+            // Create a promise that resolves when we can safely set the time
+            await new Promise((resolve) => {
+                const setVideoTime = () => {
+                    try {
+                        video.currentTime = Math.min(data.lastPosition, video.duration || Infinity);
+                        console.log('Set video position to:', video.currentTime);
+                        resolve();
+                    } catch (err) {
+                        console.error('Error setting video time:', err);
+                        resolve();
+                    }
+                };
 
-        // Update display after loading is complete
-        if (video.duration > 0) {
-            updateProgressDisplay();
-        } else {
-            video.addEventListener('loadedmetadata', updateProgressDisplay, { once: true });
+                if (video.readyState >= 1) {
+                    setVideoTime();
+                } else {
+                    video.addEventListener('loadedmetadata', setVideoTime, { once: true });
+                }
+            });
         }
-        
+
+        // Update the progress display
+        await new Promise((resolve) => {
+            const updateDisplay = () => {
+                updateProgressDisplay();
+                console.log('Updated progress display');
+                resolve();
+            };
+
+            if (video.readyState >= 1) {
+                updateDisplay();
+            } else {
+                video.addEventListener('loadedmetadata', updateDisplay, { once: true });
+            }
+        });
+
     } catch (e) {
         console.error('Failed to load progress from server:', e);
-        // Fallback to localStorage if server load fails
+        // Fallback to localStorage with proper error handling
         try {
             const savedData = localStorage.getItem(localStorageKey);
             if (savedData) {
                 const progressData = JSON.parse(savedData);
-                watchedIntervals = Array.isArray(progressData.intervals) ? progressData.intervals : [];
-                if (progressData.currentTime !== undefined && !isNaN(progressData.currentTime) && video.duration > 0) {
-                    video.currentTime = Math.min(progressData.currentTime, video.duration);
+                console.log('Found localStorage data:', progressData);
+                
+                if (Array.isArray(progressData.intervals)) {
+                    watchedIntervals = progressData.intervals;
                 }
-                console.log('Progress loaded from localStorage as fallback');
+                
+                if (typeof progressData.currentTime === 'number') {
+                    await new Promise((resolve) => {
+                        const setVideoTime = () => {
+                            video.currentTime = Math.min(progressData.currentTime, video.duration || Infinity);
+                            console.log('Set video position from localStorage:', video.currentTime);
+                            resolve();
+                        };
+
+                        if (video.readyState >= 1) {
+                            setVideoTime();
+                        } else {
+                            video.addEventListener('loadedmetadata', setVideoTime, { once: true });
+                        }
+                    });
+                }
+                
+                updateProgressDisplay();
             }
         } catch (localError) {
             console.error('Failed to load from localStorage:', localError);
             watchedIntervals = [];
             video.currentTime = 0;
         }
-        
-        // Update display regardless of where data came from
-        if (video.duration > 0) {
-            updateProgressDisplay();
-        } else {
-            video.addEventListener('loadedmetadata', updateProgressDisplay, { once: true });
-        }
     }
 }
 
-
+// Add this near your other event listeners
+video.addEventListener('canplay', () => {
+    console.log('Video can play, readyState:', video.readyState);
+    updateProgressDisplay();
+});
 // Set up periodic saving (every 30 seconds)
 const saveInterval = setInterval(() => {
     if (watchedIntervals.length > 0) {
