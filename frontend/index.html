@@ -3,85 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple Video Progress Tracker</title>
+    <title>Video Progress Tracker</title>
     <style>
         body {
-            font-family: sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
             padding: 20px;
-            background-color: #1097f7;
+            background: linear-gradient(135deg, #1097f7 0%, #0066cc 100%);
+            min-height: 100vh;
+            margin: 0;
         }
+
+        h1 {
+            color: white;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+
         #video-container {
-            margin-bottom: 20px;
-            background-color: #fff;
-            padding: 15px;
-            border-radius: 8px;
-            width: 90%;
-            max-width: 800px; /* Max width for larger screens */
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-bottom: 25px;
+            background-color: rgba(116, 116, 116, 0.95);
+            padding: 20px;
+            border-radius: 12px;
+            width: 70%;
+            max-width: 800px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            transition: transform 0.3s ease;
         }
+
+        #video-container:hover {
+            transform: translateY(-2px);
+        }
+
         #lecture-video {
-            width: 100%; /* Make video responsive */
-            max-width: 800px; /* Max width for larger screens */
-            display: block; /* Remove extra space below video */
-            border-radius: 4px;
-        }
-        #progress-area {
             width: 100%;
             max-width: 800px;
-            margin-top: 10px;
-            text-align: center;
-            position: relative; /* Make this the positioning context for absolute children */
-            padding-bottom: 10px; /* Keep space below the bar */
-            /* Removed padding-top here */
-        }
-        #progress-bar-container {
-            width: 100%;
-            height: 20px;
-            background-color: #ddd; /* Background for unwatched/skipped parts */
-            border-radius: 10px;
-            overflow: hidden; /* Keep segments inside rounded corners */
-            position: relative; /* Needed for absolute positioning of segments */
-            cursor: pointer; /* Indicate that this area is interactive */
-            /* Removed negative margin-top here */
-             margin-top: 5px; /* Add a small margin below the percentage text */
-        }
-        .watched-segment {
-            position: absolute;
-            top: 0;
-            height: 100%;
-            background-color: #fa4242; /* Green color for watched parts */
-            /* Left position and width will be set by JavaScript */
+            display: block;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
 
-        /* --- Styles for the single hover timestamp label --- */
+        #progress-area {
+    width: 50%;  /* Reduced from 70% */
+    max-width: 600px;  /* Reduced from 800px */
+    background-color: rgba(182, 182, 182, 0.95);
+    padding: 15px;  /* Reduced from 20px */
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    text-align: center;
+    position: relative;
+    margin: 0 auto;
+}
+
+        #progress-bar-container {
+        width: 80%;  /* Reduced from 100% */
+        height: 16px;  /* Reduced from 24px */
+        background-color: #e0e0e0;
+        border-radius: 8px;  /* Adjusted for smaller height */
+        overflow: hidden;
+        position: relative;
+        cursor: pointer;
+        margin: 15px auto;  /* Changed margin to auto for centering */
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.793);
+    }
+
+    .watched-segment {
+        position: absolute;
+        top: 0;
+        height: 100%;
+        background: linear-gradient(45deg, #fa4242 0%, #ff6b6b 100%);
+        transition: width 0.3s ease;
+    }
+        #progress-percentage {
+            font-size: 1.8em;
+            font-weight: 600;
+            color: #000000;
+            display: inline-block;
+            margin: 10px 0;
+        }
+
+        .progress-label {
+            font-size: 1.2em;
+            color: #191919;
+            margin-right: 10px;
+        }
+
         #hover-timestamp-label {
             position: absolute;
-            /* Position will be set dynamically by JavaScript relative to #progress-area */
-            top: 5px; /* Position slightly above the percentage text */
-            font-size: 0.75em;
-            color: #333; /* Darker color for text */
+            top: -30px;
+            font-size: 0.85em;
+            color: #333;
             white-space: nowrap;
-            background-color: #fff;
-            padding: 5px 8px; /* More padding */
-            border-radius: 4px; /* Slightly more rounded */
-            border: 1px solid #bbb; /* Slightly darker border */
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2); /* More prominent shadow */
-            z-index: 10; /* Ensure it's on top */
-            pointer-events: none; /* Allow interaction with elements underneath */
-            /* --- Hide by default --- */
+            background-color: white;
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 10;
+            pointer-events: none;
             display: none;
-            transform: translateX(-50%); /* Center the label horizontally relative to its left point */
+            transform: translateX(-50%);
+            transition: all 0.2s ease;
         }
 
-
+        .progress-container {
+            text-align: center;
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 <body>
-
-    <h1>Lecture Video</h1>
+    <h1>Video Progress Tracker</h1>
 
     <div id="video-container">
         <video id="lecture-video" controls>
@@ -91,13 +126,14 @@
     </div>
 
     <div id="progress-area">
-      <strong>Unique Progress</strong>  : <strong><span id="progress-percentage">0.0</span>%</strong>
+        <div class="progress-container">
+            <span class="progress-label"><strong>Unique Progress:</strong></span>
+            <span id="progress-percentage">0.0</span><span style="font-size: 1.8em; font-weight: 600; color: #333;">%</span>
+        </div>
         <div id="hover-timestamp-label"></div>
-        <div id="progress-bar-container">
-             </div>
+        <div id="progress-bar-container"></div>
     </div>
 
     <script src="script.js"></script>
-
 </body>
 </html>
