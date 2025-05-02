@@ -122,19 +122,19 @@ PORT=3000 # Or any other port you prefer locally
 
 ## Challenges Encountered and Solutions
 
-* Building this application involved several challenges, common in fullstack development and state management:
+Building this application involved several challenges, common in fullstack development and state management:
 
-* **CORS (Cross-Origin Resource Sharing):** Blocking API requests between frontend and backend on different origins.
-  * **Solution:** Implementing the `cors` middleware in the Express backend, configured to allow requests from the frontend's origin(s).
-
-* **Frontend API URL Configuration:** Ensuring the frontend calls the correct backend URL in different environments (local vs. deployed).
-  * **Solution:** Using a configurable `API_BASE_URL` constant in the frontend `script.js` and updating it appropriately for each environment.
-
-* **Frontend Internal State Corruption:** Tracing why the `watchedIntervals` array on the frontend sometimes contained strings instead of numerical pairs, causing backend validation errors.
-  * **Solution:** Extensive targeted `console.log` debugging to pinpoint the issue's origin, verifying variable types at key points. Ensuring the code strictly handles only numerical arrays internally and adding defensive filtering helped mitigate this.
-
-* **Backend Mongoose Schema vs. Frontend Data Format Mismatch:** Mongoose expecting `{ start, end }` objects in `watchedIntervals` while the frontend sent `[[start, end]]` arrays, leading to validation failures.
-  * **Solution:** Modified the frontend `saveProgress` function to explicitly map the internal `[[start, end]]` array format to the `{ start, end }` object format required by the Mongoose schema just before sending the data.
-
-* **Backend Route Field Names and User ID Handling:** Backend routes expecting different field names (`watchedSegments`) and potentially using a fixed user ID instead of the one sent by the frontend.
-  * **Solution:** Updated the frontend `saveProgress` and `loadProgress` functions to send and expect the field 
+1.  **CORS (Cross-Origin Resource Sharing):** Blocking API requests between frontend and backend on different origins.
+    * **Solution:** Implementing the `cors` middleware in the Express backend, configured to allow requests from the frontend's origin(s).
+2.  **Frontend API URL Configuration:** Ensuring the frontend calls the correct backend URL in different environments (local vs. deployed).
+    * **Solution:** Using a configurable `API_BASE_URL` constant in the frontend `script.js` and updating it appropriately for each environment.
+3.  **Frontend Internal State Corruption:** Tracing why the `watchedIntervals` array on the frontend sometimes contained strings instead of numerical pairs, causing backend validation errors.
+    * **Solution:** Extensive targeted `console.log` debugging to pinpoint the issue's origin, verifying variable types at key points. Ensuring the code strictly handles only numerical arrays internally and adding defensive filtering helped mitigate this.
+4.  **Backend Mongoose Schema vs. Frontend Data Format Mismatch:** Mongoose expecting `{ start, end }` objects in `watchedIntervals` while the frontend sent `[[start, end]]` arrays, leading to validation failures.
+    * **Solution:** Modified the frontend `saveProgress` function to explicitly map the internal `[[start, end]]` array format to the `{ start, end }` object format required by the Mongoose schema just before sending the data.
+5.  **Backend Route Field Names and User ID Handling:** Backend routes expecting different field names (`watchedSegments`) and potentially using a fixed user ID instead of the one sent by the frontend.
+    * **Solution:** Updated the frontend `saveProgress` and `loadProgress` functions to send and expect the field names and user ID handling used by the specific backend routes file.
+6.  **Deployment Configuration:** Setting up environment variables, configuring static file serving for fullstack deployment, and managing database network access.
+    * **Solution:** Following platform-specific documentation (like Render's), configuring environment variables, setting up static middleware in Express, and whitelisting IP addresses in MongoDB Atlas.
+7.  **Incorrect Progress Tracking During Seeks:** A challenge was preventing the application from incorrectly tracking progress over sections of the video that the user skipped by clicking ahead on the progress bar or seeking.
+    * **Solution:** Implemented logic using the `seeking` and `seeked` video events. When a `seeking` event occurs, the currently tracked playback segment (if any) is ended and recorded up to the point *before* the seek. The `seeked` event then resets the segment tracking to begin from the *new* playback position, ensuring that only genuinely watched segments, not skipped ones, are recorded.
