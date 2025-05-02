@@ -1,138 +1,102 @@
-📽️ Video Progress Tracker
-This project is a full-stack web application that tracks a user's progress while watching a video. It allows users to resume from where they left off and visually highlights watched segments on the video progress bar — all without requiring a login system.
+# Video Progress Tracker
 
-🚀 Features
-**Tracks continuous playback segments of a video
+* This project is a web application that tracks a user's watch progress on a video.
+* It saves the watched segments to a backend database, allowing the user to resume watching from where they left off and see which parts they have already viewed.
 
-Merges overlapping/adjacent watched intervals
+## Features
 
-Visually displays watched segments on the progress bar
+* Tracks continuous playback segments of a video.
+* Merges overlapping or adjacent watched segments to calculate unique watched time.
+* Visually displays watched segments on a progress bar.
+* Saves user's progress (watched segments and last position) to a backend API.
+* Loads saved progress when the video page is visited.
+* Uses a simple unique ID stored in local storage to identify users without a login system.
 
-Saves watched progress and last position to a backend API
+## Technologies Used
 
-Loads saved progress when the video page is revisited
+* **Frontend:** HTML, CSS, JavaScript (Vanilla JS)
+* **Backend:** Node.js, Express.js
+* **Database:** MongoDB (using Mongoose for object modeling)
+* **Deployment:** 
+  * Netlify (Frontend - initial setup)
+  * Render (Backend or Fullstack)
 
-Identifies users via a unique ID stored in localStorage
+## Setup and Running Locally
 
-🛠️ Technologies Used
-Frontend: HTML, CSS, JavaScript (Vanilla)
+### Prerequisites
 
-Backend: Node.js, Express.js
+* Node.js and npm (or yarn) installed.
+* Access to a MongoDB database (MongoDB Atlas cloud database is recommended and used for deployment).
+* Git installed.
 
-Database: MongoDB (Mongoose ODM)
+### 1. Clone the Repository
 
-Deployment:
-
-Frontend: Netlify (initial setup)
-
-Backend: Render (or alternative fullstack host)
-
-📦 Setup and Running Locally
-Prerequisites
-Node.js and npm installed
-
-MongoDB Atlas or a local MongoDB instance
-
-Git installed
-
-1. Clone the Repository
-bash
-Copy
-Edit
 git clone <your-repo-url>
 cd <your-project-folder>
-2. Install Backend Dependencies
-bash
+
+markdown
 Copy
 Edit
-cd backend
-npm install
-3. Configure Environment Variables
-Create a .env file in the backend folder:
 
-env
-Copy
-Edit
-PORT=5000
-MONGO_URI=your_mongodb_connection_string
-4. Start the Backend Server
-bash
-Copy
-Edit
-npm run dev
-5. Open Frontend
-Navigate to the frontend folder and open index.html in a browser.
+## Design Decisions and How it Works
 
-🧠 How It Works
-🕒 Progress Tracking
-Uses HTML5 video events: play, pause, seeking, seeked, ended.
+* Building this application involved several design decisions and implementation details:
 
-Records segments from currentPlaybackStart to current time when playback is interrupted.
+### Progress Tracking
 
-Seeks only count as watched if playback was active before seeking.
+* Progress is tracked by listening to standard HTML5 video events like `play`, `pause`, `seeking`, `seeked`, and `ended`.
+* A `currentPlaybackStart` variable records the `video.currentTime` when playback begins (`play` event).
+* When playback is interrupted by `pause`, `seeking`, or `ended`, the segment from `currentPlaybackStart` to the current time is recorded as a watched interval `[start, end]`.
+* `lastKnownTime` is updated on `timeupdate` and seeking events to help identify skips or the position before a seek.
+* The `seeking` event logic is configured to only record a segment watched *before* a seek if playback was active (`currentPlaybackStart !== -1`) when the seek began.
+* Seeking from a paused state does not add a segment by the `seeking` event itself.
 
-lastKnownTime tracks the latest position.
+### Interval Merging
 
-🔁 Interval Merging
-Stored as [[start, end], ...] on frontend.
+* Watched intervals are stored in a `watchedIntervals` array on the frontend in the format `[[start, end], ...]`.
+* The `mergeIntervals` helper function is used to consolidate these segments into a clean list of non-overlapping intervals.
+* The merging logic involves:
+  * Sorting the intervals by their start times.
+  * Iterating through the sorted intervals and comparing each with the last interval added to the merged list.
+  * If the current interval overlaps with or is adjacent (within a small tolerance) to the last merged interval, the last merged interval's end time is extended to cover the current interval's end time.
+  * If there is no overlap, the current interval is added as a new distinct segment to the merged list.
+* This merged list (`watchedIntervals`) is used internally on the frontend for display and calculation.
 
-Merging involves:
+### Frontend-Backend Communication
 
-Sorting intervals by start time
+* The frontend communicates with the backend API using the `Workspace` API.
+* `saveProgress()` sends a `POST` request to the backend. It takes the internal `watchedIntervals` array (`[[start, end], ...]`) and maps it to the `{ start, end }` object format required by the backend Mongoose schema *just before sending*.
+* It also includes:
+  * The user ID
+  * Video ID
+  * Total duration
+  * Percentage watched
+  * Last known position
+* `loadProgress()` sends a `GET` request to fetch saved progress. It expects the response to include `watchedSegments` as an array of `{ start, end }` objects.
+* It then maps this received data back into the frontend's internal `[start, end]` array format.
 
-Combining overlapping/adjacent segments
+### User and Video Identification
 
-Producing a clean, non-overlapping segment list
+* A simple unique user ID is generated and stored in the browser's `localStorage` using `getOrCreateUserId`.
+* This ID is sent to the backend to track progress for this specific "user" in this browser.
+* A `currentVideoId` constant needs to be set in `script.js` to uniquely identify the video being watched.
+* This ID is used by the backend to distinguish progress across different videos.
 
-🧩 Frontend-Backend Communication
-POST /save:
+## Challenges Encountered and Solutions
 
-Sends { start, end } format for watchedSegments
+* Building this application involved several challenges, common in fullstack development and state management:
 
-Includes userId, videoId, duration, lastPosition, percentageWatched
+* **CORS (Cross-Origin Resource Sharing):** Blocking API requests between frontend and backend on different origins.
+  * **Solution:** Implementing the `cors` middleware in the Express backend, configured to allow requests from the frontend's origin(s).
 
-GET /load:
+* **Frontend API URL Configuration:** Ensuring the frontend calls the correct backend URL in different environments (local vs. deployed).
+  * **Solution:** Using a configurable `API_BASE_URL` constant in the frontend `script.js` and updating it appropriately for each environment.
 
-Receives { start, end } format
+* **Frontend Internal State Corruption:** Tracing why the `watchedIntervals` array on the frontend sometimes contained strings instead of numerical pairs, causing backend validation errors.
+  * **Solution:** Extensive targeted `console.log` debugging to pinpoint the issue's origin, verifying variable types at key points. Ensuring the code strictly handles only numerical arrays internally and adding defensive filtering helped mitigate this.
 
-Maps it back to [[start, end]] on frontend
+* **Backend Mongoose Schema vs. Frontend Data Format Mismatch:** Mongoose expecting `{ start, end }` objects in `watchedIntervals` while the frontend sent `[[start, end]]` arrays, leading to validation failures.
+  * **Solution:** Modified the frontend `saveProgress` function to explicitly map the internal `[[start, end]]` array format to the `{ start, end }` object format required by the Mongoose schema just before sending the data.
 
-👤 User & Video Identification
-Unique user ID generated with getOrCreateUserId() and stored in localStorage
-
-currentVideoId in script.js identifies the video (e.g., "video-001")
-
-🧪 Challenges & Solutions
-Challenge	Solution
-CORS Issues	Enabled CORS middleware in Express and configured allowed origins
-Environment URL Confusion	Added API_BASE_URL constant in frontend script
-Data Type Bugs in State	Used console.log and strict type checks to sanitize internal state
-Schema Mismatch	Explicitly mapped [[start, end]] → { start, end } format before API calls
-Field Name Inconsistencies	Synced frontend requests with backend field names and ensured user ID is always passed
-
-📁 Folder Structure
-pgsql
-Copy
-Edit
-project-root/
-├── backend/
-│   ├── models/
-│   ├── routes/
-│   ├── config/
-│   └── server.js
-├── frontend/
-│   ├── index.html
-│   ├── script.js
-│   └── style.css
-📌 Future Improvements
-Add user authentication system
-
-Support multiple videos per user
-
-Add progress analytics (e.g., heatmaps)
-
-Allow manual segment marking
-
-🧑‍💻 Author
-Soumyajit Datta
-GitHub: @soumyajit73
+* **Backend Route Field Names and User ID Handling:** Backend routes expecting different field names (`watchedSegments`) and potentially using a fixed user ID instead of the one sent by the frontend.
+  * **Solution:** Updated the frontend `saveProgress` and `loadProgress` functions to send and expect the field 
