@@ -42,11 +42,11 @@
 * npm install
 # or
 * yarn install
-* Create a .env file in the backend/ folder for environment variables.
- backend/.env
-* MONGODB_URI=<Your MongoDB Atlas Connection String>
-* Example: MONGODB_URI=mongodb+srv://<username>:<password>@<cluster-url>/<database-name>?retryWrites=true&w=majority
-* PORT=3000 # Or any other port you prefer locally
+ ## Create a .env file in the backend/ folder for environment variables.
+# backend/.env
+MONGODB_URI=<Your MongoDB Atlas Connection String>
+# Example: MONGODB_URI=mongodb+srv://<username>:<password>@<cluster-url>/<database-name>?retryWrites=true&w=majority
+PORT=3000 # Or any other port you prefer locally
 
 ## 3. Frontend Setup
 * Locate your frontend files (index.html, script.js, style.css). If they are in a separate folder (e.g., public/ or frontend/), navigate there.
