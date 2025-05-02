@@ -71,9 +71,9 @@ PORT=3000 # Or any other port you prefer locally
 # or
 * yarn start
 
-# Serve the Frontend: Open your index.html file in a web browser. You can usually just double-click it, or use a simple local server like VS Code's Live Server.
+ Serve the Frontend: Open your index.html file in a web browser. You can usually just double-click it, or use a simple local server like VS Code's Live Server.
 ## or
-# You can click on the server URL and the frontend web page will open in a new tab
+ You can click on the server URL and the frontend web page will open in a new tab
 
 * If you are running the fullstack project on Render later, the backend will serve the frontend files. For local development, opening index.html directly or using Live Server is common.
 * Open the browser's developer console (usually F12) to see the logs for the progress tracking.
