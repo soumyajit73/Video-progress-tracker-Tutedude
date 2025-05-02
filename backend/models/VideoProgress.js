@@ -12,10 +12,12 @@ const videoProgressSchema = new mongoose.Schema({
   },
   percentageWatched: {
     type: Number,
-    default: 0,
+    default: 0.0,
     min: 0,
-    max: 100
-  },
+    max: 100,
+    get: v => parseFloat(v.toFixed(1)), // Format when retrieving
+    set: v => parseFloat(v.toFixed(1))  // Format when saving
+},
   totalDuration: {
     type: Number,
     default: 0
@@ -44,5 +46,5 @@ videoProgressSchema.pre('save', function(next) {
   }
   next();
 });
-
+videoProgressSchema.set('toJSON', { getters: true });
 module.exports = mongoose.model('VideoProgress', videoProgressSchema);

@@ -370,14 +370,14 @@ async function saveProgress() {
     const uniqueTime = getUniqueWatchedTime();
     const totalDuration = Math.floor(video.duration);
     const uniquePercentage = totalDuration > 0 
-        ? Math.min(Math.round((uniqueTime / totalDuration) * 100), 100)
-        : 0;
+        ? Math.min((uniqueTime / totalDuration) * 100, 100).toFixed(1) // Keep 1 decimal place
+        : 0.0;
 
     const progressData = {
         videoId: localStorageKey,
         watchedSegments: watchedIntervals,
         totalDuration: totalDuration,
-        percentageWatched: uniquePercentage,
+        percentageWatched: parseFloat(uniquePercentage), // Convert to number
         lastPosition: video.currentTime
     };
     
